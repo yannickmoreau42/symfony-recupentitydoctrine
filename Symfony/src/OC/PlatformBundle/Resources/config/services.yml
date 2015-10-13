@@ -1,0 +1,7 @@
+# src/OC/PlatformBundle/Resources/config/services.yml
+parameters:
+    mon_parametre: ma_valeur
+
+services:
+    oc_platform.antispam:
+        class: OC\PlatformBundle\Antispam\OCAntispam
