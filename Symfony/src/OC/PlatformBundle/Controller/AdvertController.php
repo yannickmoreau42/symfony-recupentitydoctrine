@@ -5,25 +5,46 @@ namespace OC\PlatformBundle\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Request;
+use OC\PlatformBundle\Entity\Advert;
+
+
 
 class AdvertController extends Controller
 {
   public function indexAction($page)
   {
+      // On ne sait pas combien de pages il y a
+    // Mais on sait qu'une page doit être supérieure ou égale à 1
     if ($page < 1) {
-      throw $this->createNotFoundException("La page ".$page." n'existe pas.");
+      // On déclenche une exception NotFoundHttpException, cela va afficher
+      // une page d'erreur 404 (qu'on pourra personnaliser plus tard d'ailleurs)
+      throw new NotFoundHttpException('Page "'.$page.'" inexistante.');
     }
 
-    // Pour récupérer la liste de toutes les annonces : on utilise findAll()
+    // Ici je fixe le nombre d'annonces par page à 3
+    // Mais bien sûr il faudrait utiliser un paramètre, et y accéder via $this->container->getParameter('nb_per_page')
+    $nbPerPage = 3;
+
+    // On récupère notre objet Paginator
     $listAdverts = $this->getDoctrine()
       ->getManager()
       ->getRepository('OCPlatformBundle:Advert')
-      ->findAll()
+      ->getAdverts($page, $nbPerPage)
     ;
 
-    // L'appel de la vue ne change pas
+    // On calcule le nombre total de pages grâce au count($listAdverts) qui retourne le nombre total d'annonces
+    $nbPages = ceil(count($listAdverts)/$nbPerPage);
+
+    // Si la page n'existe pas, on retourne une 404
+    if ($page > $nbPages) {
+      throw $this->createNotFoundException("La page ".$page." n'existe pas.");
+    }
+
+    // On donne toutes les informations nécessaires à la vue
     return $this->render('OCPlatformBundle:Advert:index.html.twig', array(
-      'listAdverts' => $listAdverts
+      'listAdverts' => $listAdverts,
+      'nbPages'     => $nbPages,
+      'page'        => $page
     ));
   }
 
@@ -52,66 +73,73 @@ class AdvertController extends Controller
 
   public function addAction(Request $request)
   {
-    // La gestion d'un formulaire est particulière, mais l'idée est la suivante :
+ // On crée un objet Advert
+    $advert = new Advert();
 
-    if ($request->isMethod('POST')) {
-      // Ici, on s'occupera de la création et de la gestion du formulaire
+    // On crée le FormBuilder grâce au service form factory
+    $formBuilder = $this->get('form.factory')->createBuilder('form', $advert);
 
-      $request->getSession()->getFlashBag()->add('info', 'Annonce bien enregistrée.');
+    // On ajoute les champs de l'entité que l'on veut à notre formulaire
+    $formBuilder
+      ->add('date',      'date')
+      ->add('title',     'text')
+      ->add('content',   'textarea')
+      ->add('author',    'text')
+      ->add('published', 'checkbox')
+      ->add('save',      'submit')
+      ->getForm()
+    ;
+    // Pour l'instant, pas de candidatures, catégories, etc., on les gérera plus tard
 
-      // Puis on redirige vers la page de visualisation de cet article
-      return $this->redirect($this->generateUrl('oc_platform_view', array('id' => 1)));
+    // À partir du formBuilder, on génère le formulaire
+    $form = $formBuilder->getForm();
+    // On fait le lien Requête <-> Formulaire
+    // À partir de maintenant, la variable $advert contient les valeurs entrées dans le formulaire par le visiteur
+    $form->handleRequest($request);
+
+    // On vérifie que les valeurs entrées sont correctes
+    // (Nous verrons la validation des objets en détail dans le prochain chapitre)
+    if ($form->isValid()) {
+      // On l'enregistre notre objet $advert dans la base de données, par exemple
+      $em = $this->getDoctrine()->getManager();
+      $em->persist($advert);
+      $em->flush();
+
+      $request->getSession()->getFlashBag()->add('notice', 'Annonce bien enregistrée.');
+
+      // On redirige vers la page de visualisation de l'annonce nouvellement créée
+      return $this->redirect($this->generateUrl('oc_platform_view', array('id' => $advert->getId())));
     }
 
-    // Si on n'est pas en POST, alors on affiche le formulaire
-    return $this->render('OCPlatformBundle:Advert:add.html.twig');
-  }
-
-  public function editAction($id)
-  {
-    // On récupère l'EntityManager
-    $em = $this->getDoctrine()->getManager();
-
-    // On récupère l'entité correspondant à l'id $id
-    $advert = $em->getRepository('OCPlatformBundle:Advert')->find($id);
-
-    // Si l'annonce n'existe pas, on affiche une erreur 404
-    if ($advert == null) {
-      throw $this->createNotFoundException("L'annonce d'id ".$id." n'existe pas.");
-    }
-
-    // Ici, on s'occupera de la création et de la gestion du formulaire
-
-    return $this->render('OCPlatformBundle:Advert:edit.html.twig', array(
-      'advert' => $advert
+    // À ce stade, le formulaire n'est pas valide car :
+    // - Soit la requête est de type GET, donc le visiteur vient d'arriver sur la page et veut voir le formulaire
+    // - Soit la requête est de type POST, mais le formulaire contient des valeurs invalides, donc on l'affiche de nouveau
+    return $this->render('OCPlatformBundle:Advert:add.html.twig', array(
+      'form' => $form->createView(),
     ));
   }
 
   public function deleteAction($id, Request $request)
   {
-    // On récupère l'EntityManager
     $em = $this->getDoctrine()->getManager();
-
-    // On récupère l'entité correspondant à l'id $id
+    // On récupère l'annonce $id
     $advert = $em->getRepository('OCPlatformBundle:Advert')->find($id);
-
-    // Si l'annonce n'existe pas, on affiche une erreur 404
-    if ($advert == null) {
-      throw $this->createNotFoundException("L'annonce d'id ".$id." n'existe pas.");
+    if (null === $advert) {
+      throw new NotFoundHttpException("L'annonce d'id ".$id." n'existe pas.");
     }
-
-    if ($request->isMethod('POST')) {
-      // Si la requête est en POST, on deletea l'article
-
-      $request->getSession()->getFlashBag()->add('info', 'Annonce bien supprimée.');
-
-      // Puis on redirige vers l'accueil
+    // On crée un formulaire vide, qui ne contiendra que le champ CSRF
+    // Cela permet de protéger la suppression d'annonce contre cette faille
+    $form = $this->createFormBuilder()->getForm();
+    if ($form->handleRequest($request)->isValid()) {
+      $em->remove($advert);
+      $em->flush();
+      $request->getSession()->getFlashBag()->add('info', "L'annonce a bien été supprimée.");
       return $this->redirect($this->generateUrl('oc_platform_home'));
     }
-
-    // Si la requête est en GET, on affiche une page de confirmation avant de delete
+    // Si la requête est en GET, on affiche une page de confirmation avant de supprimer
     return $this->render('OCPlatformBundle:Advert:delete.html.twig', array(
-      'advert' => $advert
+      'advert' => $advert,
+      'form'   => $form->createView()
     ));
   }
 
