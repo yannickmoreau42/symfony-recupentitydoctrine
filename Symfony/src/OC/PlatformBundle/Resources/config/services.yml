@@ -3,5 +3,8 @@ parameters:
     mon_parametre: ma_valeur
 
 services:
-    oc_platform.antispam:
-        class: OC\PlatformBundle\Antispam\OCAntispam
+    oc_platform.doctrine.notification:
+        class: OC\PlatformBundle\DoctrineListener\ApplicationNotification
+        arguments: [@mailer]
+        tags:
+            - { name: doctrine.event_listener, event: postPersist }

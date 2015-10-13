@@ -236,4 +236,17 @@ return $this->render('OCPlatformBundle:Advert:menu.html.twig', array(
   'listAdverts' => $listAdverts
 ));
   }
+public function testAction()
+{
+	$advert = new Advert();
+	$advert->setTitle("Recherche développeur !");
+
+	$em = $this->getDotrine()->getManager();
+	$em->persist($advert);
+	$em->flush();
+
+	return new Response ('Slug généré : '.$advert->getSlug());
+	//Affiche << Slug généré : recherche-développeur>>
+}
+
 }
