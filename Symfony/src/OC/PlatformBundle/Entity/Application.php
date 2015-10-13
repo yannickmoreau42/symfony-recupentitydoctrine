@@ -32,13 +32,13 @@ class Application
    * @ORM\Column(name="date", type="datetime")
    */
   private $date;
-    /**
-   * @ORM\ManyToOne(targetEntity="OC\PlatformBundle\Entity\Advert")
+
+  /**
+   * @ORM\ManyToOne(targetEntity="OC\PlatformBundle\Entity\Advert", inversedBy="applications")
    * @ORM\JoinColumn(nullable=false)
    */
   private $advert;
 
-  
   public function __construct()
   {
     $this->date = new \Datetime();
@@ -52,7 +52,6 @@ class Application
   public function setAuthor($author)
   {
     $this->author = $author;
-
     return $this;
   }
 
@@ -64,7 +63,6 @@ class Application
   public function setContent($content)
   {
     $this->content = $content;
-
     return $this;
   }
 
@@ -85,30 +83,19 @@ class Application
     return $this->date;
   }
 
-    /**
-     * Set advert
-     *
-     * @param \OC\PlatformBundle\Entity\Advert $advert
-     *
-     * @return Application
-     */
-    public function setAdvert(\OC\PlatformBundle\Entity\Advert $advert)
-    {
-        $this->advert = $advert;
+  public function setAdvert(Advert $advert)
+  {
+    $this->advert = $advert;
 
-        return $this;
-    }
+    return $this;
+  }
 
-    /**
-     * Get advert
-     *
-     * @return \OC\PlatformBundle\Entity\Advert
-     */
-    public function getAdvert()
-    {
-        return $this->advert;
-    }
-      /**
+  public function getAdvert()
+  {
+    return $this->advert;
+  }
+
+  /**
    * @ORM\PrePersist
    */
   public function increase()
